@@ -41,7 +41,8 @@ def extract_features(db, net, trfs, pooling='mean', gemp=3, detailed=False, whit
 
     for trfs in trfs_list:
         kw = dict(iscuda=net.iscuda, threads=threads, batch_size=batch_size, same_size='Pad' in trfs or 'Crop' in trfs)
-        bdescs.append(test.extract_image_features(db, trfs, net, desc="DB", **kw))
+        feats, dur = test.extract_image_features(db, trfs, net, desc="DB", ret_dur=True, **kw)
+        bdescs.append(feats)
 
         # extract query feats
         if query_db is not None:
@@ -59,8 +60,10 @@ def extract_features(db, net, trfs, pooling='mean', gemp=3, detailed=False, whit
             qdescs = common.whiten_features(qdescs, net.pca, **whiten)
 
     mkdir(output, isfile=True)
+    print("Save location: ",output)
     if query_db is db or query_db is None:
         np.save(output, bdescs)
+        np.savetxt(osp.join(osp.dirname(output),"time_s.txt"),dur,"%s")
     else:
         o = osp.splitext(output)
         np.save(o[0]+'.qdescs'+o[1], qdescs)

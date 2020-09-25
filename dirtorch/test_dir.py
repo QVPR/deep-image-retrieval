@@ -19,7 +19,7 @@ import dirtorch.datasets.downloader as dl
 
 import pickle as pkl
 import hashlib
-
+import time
 
 def expand_descriptors(descs, db=None, alpha=0, k=0):
     assert k >= 0 and alpha >= 0, 'k and alpha must be non-negative'
@@ -45,7 +45,7 @@ def expand_descriptors(descs, db=None, alpha=0, k=0):
 
 
 def extract_image_features(dataset, transforms, net, ret_imgs=False, same_size=False, flip=None,
-                           desc="Extract feats...", iscuda=True, threads=8, batch_size=8):
+                           desc="Extract feats...", iscuda=True, threads=8, batch_size=8, ret_dur=False):
     """ Extract image features for a given dataset.
         Output is 2-dimensional (B, D)
     """
@@ -64,14 +64,18 @@ def extract_image_features(dataset, transforms, net, ret_imgs=False, same_size=F
 
     img_feats = []
     trf_images = []
+    dur = []
     with torch.no_grad():
         for inputs in tqdm.tqdm(loader, desc, total=1+(len(dataset)-1)//batch_size):
+            t1 = time.time()
             imgs = inputs[0]
             for i in range(len(imgs)):
                 if flip and flip.pop(0):
                     imgs[i] = imgs[i].flip(2)
             imgs = common.variables(inputs[:1], net.iscuda)[0]
             desc = net(imgs)
+            t2 = time.time()
+            dur.append(t2-t1)
             if ret_imgs:
                 trf_images.append(tocpu(imgs.detach()))
             del imgs
@@ -91,6 +95,8 @@ def extract_image_features(dataset, transforms, net, ret_imgs=False, same_size=F
         if same_size:
             trf_images = torch.cat(trf_images, dim=0)
         return trf_images, img_feats
+    if ret_dur:
+       return img_feats, dur
     return img_feats
 
 
@@ -257,3 +263,5 @@ if __name__ == '__main__':
         mkdir(args.out_json)
         open(args.out_json, 'w').write(json.dumps(data, indent=1))
         print("saved to "+args.out_json)
+
+
