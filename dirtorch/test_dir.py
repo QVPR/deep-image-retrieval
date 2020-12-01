@@ -20,6 +20,10 @@ import dirtorch.datasets.downloader as dl
 import pickle as pkl
 import hashlib
 import time
+from skimage import io, transform
+import torchvision.transforms as transforms
+
+rsz = transforms.Resize((640,480))
 
 def expand_descriptors(descs, db=None, alpha=0, k=0):
     assert k >= 0 and alpha >= 0, 'k and alpha must be non-negative'
@@ -42,7 +46,6 @@ def expand_descriptors(descs, db=None, alpha=0, k=0):
         descs_aug[i] = new_q / np.linalg.norm(new_q)
 
     return descs_aug
-
 
 def extract_image_features(dataset, transforms, net, ret_imgs=False, same_size=False, flip=None,
                            desc="Extract feats...", iscuda=True, threads=8, batch_size=8, ret_dur=False):
@@ -69,10 +72,13 @@ def extract_image_features(dataset, transforms, net, ret_imgs=False, same_size=F
         for inputs in tqdm.tqdm(loader, desc, total=1+(len(dataset)-1)//batch_size):
             t1 = time.time()
             imgs = inputs[0]
+            imgs2 = []
             for i in range(len(imgs)):
+                imgs2.append(torch.from_numpy(transform.resize(imgs[i].numpy(),(3,480,640))).unsqueeze(0))
                 if flip and flip.pop(0):
-                    imgs[i] = imgs[i].flip(2)
-            imgs = common.variables(inputs[:1], net.iscuda)[0]
+                    imgs2[-1] = imgs2[-1].flip(2)
+            imgs = torch.cat(imgs2)
+            imgs = common.variables([imgs], net.iscuda)[0]
             desc = net(imgs)
             t2 = time.time()
             dur.append(t2-t1)
